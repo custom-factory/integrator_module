@@ -61,15 +61,8 @@ const {exposeFunctionIfAbsent} = require('./util/Puppeteer');
  * @fires Client#vote_update
  */
 class Client extends EventEmitter {
-
-    currentBrowser = null;
-    currentPage = null;
-
-    constructor(browser, page, options = {}) {
+    constructor(options = {}) {
         super();
-
-        this.currentBrowser = browser;
-        this.currentPage = page;
 
         this.options = Util.mergeDefault(DefaultOptions, options);
         
@@ -84,11 +77,11 @@ class Client extends EventEmitter {
         /**
          * @type {puppeteer.Browser}
          */
-        this.pupBrowser = browser;
+        this.pupBrowser = null;
         /**
          * @type {puppeteer.Page}
          */
-        this.pupPage = page;
+        this.pupPage = null;
 
         this.currentIndexHtml = null;
         this.lastLoggedOut = false;
@@ -269,6 +262,9 @@ class Client extends EventEmitter {
      */
     async initialize() {
 
+        let browser = this.pupBrowser;
+        let page = this.pupPage;
+
         await this.authStrategy.beforeBrowserInitialized();
 
         const puppeteerOpts = this.options.puppeteer;
@@ -282,26 +278,24 @@ class Client extends EventEmitter {
             }
             // navigator.webdriver fix
             browserArgs.push('--disable-blink-features=AutomationControlled');
+
             // browser = await puppeteer.launch({...puppeteerOpts, args: browserArgs});
             // page = (await browser.pages())[0];
         }
 
         if (this.options.proxyAuthentication !== undefined) {
-            await this.pupPage.authenticate(this.options.proxyAuthentication);
+            await page.authenticate(this.options.proxyAuthentication);
         }
       
-        await this.pupPage.setUserAgent(this.options.userAgent);
-        if (this.options.bypassCSP) await this.pupPage.setBypassCSP(true);    
-
-        // this.pupBrowser = browser;
-        // this.pupPage = page;
+        await page.setUserAgent(this.options.userAgent);
+        if (this.options.bypassCSP) await page.setBypassCSP(true);
 
         await this.authStrategy.afterBrowserInitialized();
         await this.initWebVersionCache();
 
         // ocVersion (isOfficialClient patch)
         // remove after 2.3000.x hard release
-        await this.pupPage.evaluateOnNewDocument(() => {
+        await page.evaluateOnNewDocument(() => {
             const originalError = Error;
             window.originalError = originalError;
             //eslint-disable-next-line no-global-assign
@@ -313,7 +307,7 @@ class Client extends EventEmitter {
             };
         });
         
-        await this.pupPage.goto(WhatsWebURL, {
+        await page.goto(WhatsWebURL, {
             waitUntil: 'load',
             timeout: 0,
             referer: 'https://whatsapp.com/'
